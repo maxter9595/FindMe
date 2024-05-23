@@ -193,22 +193,22 @@ USER_PASSWORD_DB='postgres'
 - После входа на страницу приложения:
   - вводим "start":
   - нажимаем на кнопку "хочу зарегистрироваться"
-<img src="Materials/Registration/registration1.png" alt="drawing" width="450" height="450"/>
+<img src="Materials/Registration/registration1.png" alt="drawing" width="450" height="300"/>
 &nbsp;
 
 
 - Далее вводим пользовательские данные и нажимаем на кнопку "Сохранить анкету"
-<img src="Materials/Registration/registration2.png" alt="drawing" width="450" height="450"/>
+<img src="Materials/Registration/registration2.png" alt="drawing" width="450" height="350"/>
 &nbsp;
 
 
 - На следующем шаге вводим параметры нашего партнера и нажимаем на кнопку "Сохранить критерии"
-<img src="Materials/Registration/registration3.png" alt="drawing" width="450" height="450"/>
+<img src="Materials/Registration/registration3.png" alt="drawing" width="450" height="350"/>
 &nbsp;
 
 
 - После этого мы окажемся в главном меню
-<img src="Materials/Registration/registration4.png" alt="drawing" width="450" height="450"/>
+<img src="Materials/Registration/registration4.png" alt="drawing" width="450" height="350"/>
 &nbsp;
 
 ---------------------
