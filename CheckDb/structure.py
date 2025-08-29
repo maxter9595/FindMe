@@ -1,6 +1,3 @@
-import inspect
-import sys
-
 import sqlalchemy as sq
 from sqlalchemy.orm import declarative_base
 
@@ -63,7 +60,6 @@ class Cities(Base):
     - name: наименование города
     """
 
-    # искать по названию в ВК (пока непонятно)
     __tablename__ = 'cities'
 
     id = sq.Column(
@@ -352,7 +348,6 @@ class Exceptions(Base):
     )
 
 
-# Создание таблиц в БД
 def form_tables(engine):
     """
     Назначение: создание таблиц в БД

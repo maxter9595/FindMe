@@ -1,0 +1,76 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:13
+    container_name: findme_db
+    environment:
+      POSTGRES_DB: ${DB_NAME:-findme_db}
+      POSTGRES_USER: ${USER_NAME_DB:-postgres}
+      POSTGRES_PASSWORD: ${USER_PASSWORD_DB:-postgres}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${USER_NAME_DB:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: findme_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@findme.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    depends_on:
+      - db
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    restart: unless-stopped
+
+  app:
+    build: .
+    container_name: findme_app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_NAME: ${DB_NAME:-findme_db}
+      USER_NAME_DB: ${USER_NAME_DB:-postgres}
+      USER_PASSWORD_DB: ${USER_PASSWORD_DB:-postgres}
+      DB_HOST: ${DB_HOST:-db}
+      DB_PORT: ${DB_PORT:-5432}
+      VK_GROUP_TOKEN: ${VK_GROUP_TOKEN}
+      VK_USER_TOKEN: ${VK_USER_TOKEN}
+      API_LONG_POLL_VERSION: ${API_LONG_POLL_VERSION:-5.131}
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+
+  test:
+    build: .
+    container_name: findme_test
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_NAME: ${TEST_DB_NAME:-test_findme_db}
+      USER_NAME_DB: ${USER_NAME_DB:-postgres}
+      USER_PASSWORD_DB: ${USER_PASSWORD_DB:-postgres}
+      DB_HOST: ${DB_HOST:-db}
+      DB_PORT: ${DB_PORT:-5432}
+    command: ["python", "-m", "pytest", "tests/", "-v"]
+    volumes:
+      - .:/app
+
+volumes:
+  postgres_data:
+  pgadmin_data:

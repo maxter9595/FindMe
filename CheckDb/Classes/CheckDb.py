@@ -30,7 +30,7 @@ class CheckDb():
         port_str = os.getenv(key='DB_PORT')
 
         try:
-            port = int(port_str) if port_str else 5432  # значение по умолчанию
+            port = int(port_str) if port_str else 5432
         except ValueError:
             print(f"Warning: Invalid port value '{port_str}', using default 5432")
             port = 5432
@@ -100,14 +100,13 @@ class CheckDb():
             print("Creating tables...")
             form_tables(engine)
             
-            # Проверяем создание всех таблиц
             for name_table in self.tables:
                 if not self.exists_tables(name_table):
                     self.error = f'Таблица {name_table} не создана'
                     print(f"Error: Table {name_table} not created")
                     break
             else:
-                self.error = None  # Все таблицы созданы успешно
+                self.error = None
                 print("All tables created successfully")
                 
         except Exception as e:

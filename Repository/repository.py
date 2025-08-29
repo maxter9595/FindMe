@@ -116,30 +116,21 @@ class Repository():
     def add_favorites(self, user: User) -> None:
         """
         Добавляет партнера пользователя в таблицу favorites
-
-        Вводной параметр:
-        - user: экземпляр класса User
+        Используем id таблицы для хранения VK ID пользователя
         """
-
         session = self.start_session()
         card = user.get_card()
         photos = card.photos
 
         profile = 'https://vk.com/id' + str(card.id)
+        
         existing_favorite = session.query(Favorites).\
-            filter_by(user_id=user.get_user_id(), profile=profile).\
-            all()
+            filter_by(id=card.id, user_id=user.get_user_id()).\
+            first()
 
         if not existing_favorite:
-            favorites = session.query(Favorites).\
-                all()
-            if not favorites:
-                new_id = 1
-            else:
-                new_id = len([item for item in favorites]) + 1
-
             new_favorite = Favorites(
-                id=new_id,
+                id=card.id,
                 user_id=user.get_user_id(),
                 first_name=card.first_name,
                 last_name=card.last_name,
@@ -155,46 +146,37 @@ class Repository():
             session.commit()
 
         existing_exception = session.query(Exceptions).\
-            filter_by(user_id=user.get_user_id(), profile=profile).\
-            all()
+            filter_by(id=card.id, user_id=user.get_user_id()).\
+            first()
         session.close()
 
         if existing_exception:
-            self.delete_exceptions(user_id=user.get_user_id(), profile=profile)
+            self.delete_exceptions(user_id=user.get_user_id(), vk_id=card.id)
 
     def add_exceptions(self, user: User) -> None:
         """
         Добавляет партнера пользователя в таблицу exceptions
-
-        Вводной параметр:
-        - user: экземпляр класса User
+        Используем id таблицы для хранения VK ID пользователя
         """
-
         session = self.start_session()
         card = user.get_card()
         photos = card.photos
 
         profile = 'https://vk.com/id' + str(card.id)
+        
         existing_exception = session.query(Exceptions).\
-            filter_by(user_id=user.get_user_id(), profile=profile).\
-            all()
+            filter_by(id=card.id, user_id=user.get_user_id()).\
+            first()
 
         if not existing_exception:
-            exceptions = session.query(Exceptions).\
-                all()
-            if not exceptions:
-                new_id = 1
-            else:
-                new_id = len([item for item in exceptions]) + 1
-
             new_exception = Exceptions(
-                id=new_id,
+                id=card.id,
                 user_id=user.get_user_id(),
                 first_name=card.first_name,
                 last_name=card.last_name,
                 age=card.age,
                 gender_id=card.gender,
-                profile='https://vk.com/id' + str(card.id),
+                profile=profile,
                 photo1=photos[0] if photos else '',
                 photo2=photos[1] if len(photos) > 1 else '',
                 photo3=photos[2] if len(photos) > 2 else '',
@@ -204,53 +186,41 @@ class Repository():
             session.commit()
 
         existing_favorite = session.query(Favorites). \
-            filter_by(user_id=user.get_user_id(), profile=profile). \
-            all()
+            filter_by(id=card.id, user_id=user.get_user_id()). \
+            first()
         session.close()
 
         if existing_favorite:
-            self.delete_favorites(user_id=user.get_user_id(), profile=profile)
+            self.delete_favorites(user_id=user.get_user_id(), vk_id=card.id)
 
-    def delete_favorites(self, user_id: int, profile: str) -> None:
+    def delete_favorites(self, user_id: int, vk_id: int) -> None:
         """
-        Удаляет партнера пользователя из таблицы exceptions
-
-        Вводные параметры:
-        - user_id: VK ID пользователя приложения
-        - profile: профиль партнера пользователя
+        Удаляет партнера пользователя из таблицы favorites по VK ID
         """
-
         session = self.start_session()
         existing_favorite = session.query(Favorites). \
-            filter_by(user_id=user_id, profile=profile). \
+            filter_by(id=vk_id, user_id=user_id). \
             first()
 
         if existing_favorite:
             session.delete(existing_favorite)
             session.commit()
-
         session.close()
 
-    def delete_exceptions(self, user_id: int, profile: str) -> None:
+    def delete_exceptions(self, user_id: int, vk_id: int) -> None:
         """
-        Удаляет партнера пользователя из таблицы exceptions
-
-        Вводные параметры:
-        - user_id: VK ID пользователя приложения
-        - profile: профиль партнера пользователя
+        Удаляет партнера пользователя из таблицы exceptions по VK ID
         """
-
         session = self.start_session()
         existing_exception = session.query(Exceptions). \
-            filter_by(user_id=user_id, profile=profile). \
+            filter_by(id=vk_id, user_id=user_id). \
             first()
 
         if existing_exception:
             session.delete(existing_exception)
             session.commit()
-
         session.close()
-
+    
     def get_favorites(self, user_id: int) -> Optional[list]:
         """
         Выводит список избранных партнеров по ID пользователя

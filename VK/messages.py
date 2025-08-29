@@ -1,7 +1,6 @@
 from io import BytesIO
 
 import requests
-from vk_api import VkUpload
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 from vk_api.utils import get_random_id
 
@@ -82,9 +81,6 @@ def get_registration_message(user: User):
     keyboard.add_line()
     keyboard.add_button(label='Сохранить анкету', color=VkKeyboardColor.POSITIVE,
                                    payload={"action_save_anketa": "save_anketa"})
-    # keyboard.add_line()
-    # keyboard.add_callback_button(label='Коротко обо мне: '+user.get_city().get('') + '\t', color=VkKeyboardColor.SECONDARY,
-    #                                payload={"action": "edit_about_me"})
 
     message = {
         'user_id': user.get_user_id(),
@@ -107,10 +103,6 @@ def get_edit_message(user_id, str_arg):
         text_message += f' 1 - Есть фото, другое - нет'
     elif str_arg == 'age':
         text_message += f' формат ввода -> 25 (свой возраст) или 25-55 (диапазон возраста второй половинки)'
-
-    # keyboard = VkKeyboard(one_time=True)
-    # keyboard.add_button('Отмена', color=VkKeyboardColor.NEGATIVE,
-    #                     payload={"action_cancel": "cancel_edit_anketa"})
 
     message = {
         'user_id': user_id,
@@ -139,8 +131,6 @@ def get_main_menu_message(user: User):
     keyboard.add_button('В черный список', color=VkKeyboardColor.PRIMARY,
                         payload={"action_main_manu": "go_to_exception"})
 
-    # keyboard.add_button('Анкета', color=VkKeyboardColor.PRIMARY,
-    #                     payload={"action_main_manu": "anketa"})
     message = {
         'user_id': user.get_user_id(),
         'message': text_message,
@@ -200,10 +190,6 @@ def get_message_view(attachment, card, user: User):
 
         keyboard.add_button('Удалить из списка', color=VkKeyboardColor.PRIMARY,
                             payload={"action_view": "delete_from_list"})
-
-    # keyboard.add_line()
-    # keyboard.add_button('В черный список', color=VkKeyboardColor.PRIMARY,
-    #                     payload={"action_view": "go_to_exception"})
 
     keyboard.add_line()
     keyboard.add_button('Главное меню', color=VkKeyboardColor.PRIMARY,
