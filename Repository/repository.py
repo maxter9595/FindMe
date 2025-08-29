@@ -3,16 +3,15 @@ from typing import Optional
 
 from dotenv import load_dotenv
 from sqlalchemy import Engine, create_engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import Session, sessionmaker
 
-from User import User
-from Repository.CardFavorites import CardFavorites
-from Repository.CardExceptions import CardExceptions
-from Repository.ABCRepository import ABCRepository
-from CheckBD.StructureDBORM import Users, Cities, Criteria, Favorites, Exceptions
+from CheckDb.structure import Cities, Criteria, Exceptions, Favorites, Users
+from Repository.Classes.CardExceptions import CardExceptions
+from Repository.Classes.CardFavorites import CardFavorites
+from VK.Classes.User import User
 
 
-class ORMRepository(ABCRepository):
+class Repository():
 
     def get_engine(self) -> Engine:
         """
@@ -24,11 +23,11 @@ class ORMRepository(ABCRepository):
 
         load_dotenv()
 
-        dbname = 'findme'
+        dbname = os.getenv(key='DB_NAME')
         user = os.getenv(key='USER_NAME_DB')
         password = os.getenv(key='USER_PASSWORD_DB')
-        host = 'localhost'
-        port = '5432'
+        host = os.getenv(key='DB_HOST')
+        port = os.getenv(key='DB_PORT')
 
         dns_link = f"postgresql://{user}:{password}@{host}:{port}/{dbname}"
         return create_engine(dns_link)
@@ -455,3 +454,35 @@ class ORMRepository(ABCRepository):
             session.commit()
 
         session.close()
+
+    def get_users(self) -> dict:
+        """
+        Получает всех пользователей из БД
+        Возвращает словарь {user_id: User}
+        """
+        session = self.start_session()
+        users_dict = {}
+        
+        try:
+            existing_users = session.query(Users, Cities).\
+                join(Cities, Cities.id == Users.city_id).\
+                all()
+                
+            for user_obj, city_obj in existing_users:
+                user = User(user_obj.id)
+                user.set_first_name(user_obj.first_name)
+                user.set_last_name(user_obj.last_name)
+                user.set_age(user_obj.age)
+                user.set_gender(user_obj.gender_id)
+                user.set_about_me(user_obj.about_me)
+                user.set_city({'id': city_obj.id, 'title': city_obj.name})
+                
+                criteria = self.open_criteria(user_obj.id)
+                user.set_criteria(criteria)
+                
+                users_dict[user_obj.id] = user
+                
+        finally:
+            session.close()
+            
+        return users_dict

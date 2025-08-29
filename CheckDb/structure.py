@@ -1,5 +1,5 @@
-import sys
 import inspect
+import sys
 
 import sqlalchemy as sq
 from sqlalchemy.orm import declarative_base
@@ -30,6 +30,28 @@ class Genders(Base):
         unique=True
     )
 
+class Status(Base):
+    """
+    Наименование таблицы:
+    - status
+
+    Столбцы:
+    - id: ID статуса
+    - status: наименование статуса
+    """
+
+    __tablename__ = 'status'
+
+    id = sq.Column(
+        sq.Integer,
+        primary_key=True
+    )
+
+    status = sq.Column(
+        sq.String(length=50),
+        nullable=False,
+        unique=True
+    )
 
 class Cities(Base):
     """
@@ -120,7 +142,7 @@ class Criteria(Base):
     - id: ID критерия поиска
     - user_id: ID пользователя ВК
     - gender_id: ID пола пользователя
-    - status: статус (женат, холост и т.д.)
+    - status_id: ID статуса (FK: status.id)
     - age_from: начальный возраст партнера
     - age_to: конечеый возраст партнера
     - city_id: ID города пользователя
@@ -149,6 +171,7 @@ class Criteria(Base):
 
     status = sq.Column(
         sq.Integer,
+        sq.ForeignKey('status.id'),
         nullable=False
     )
 

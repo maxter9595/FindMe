@@ -1,4 +1,4 @@
-from Criteria import Criteria
+from VK.Classes.Criteria import Criteria
 
 
 class User:

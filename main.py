@@ -1,24 +1,21 @@
 import json
+import os
 from enum import Enum
 from io import BytesIO
 
 import requests
 import vk_api
-from vk_api import VkUpload
-from vk_api.longpoll import VkLongPoll, VkEventType
 from dotenv import load_dotenv
-import os
-import VK.vk_messages as ms
-from CheckBD.ABCCheckDb import ABCCheckDb
-from CheckBD.CheckDBORM import CheckDBORM
-from CheckBD.CheckDBSQL import CheckDBSQL
-from Repository.ABCRepository import ABCRepository
-from Repository.CardExceptions import CardExceptions
-from Repository.CardFavorites import CardFavorites
-from Repository.ORMRepository import ORMRepository
-from Repository.SQLRepository import SQLRepository
-from User import User
-from VK.VKService import VKService
+from vk_api import VkUpload
+from vk_api.longpoll import VkEventType, VkLongPoll
+
+import VK.messages as ms
+from CheckDb.Classes.CheckDb import CheckDb
+from Repository.Classes.CardExceptions import CardExceptions
+from Repository.Classes.CardFavorites import CardFavorites
+from Repository.repository import Repository
+from VK.Classes.User import User
+from VK.Classes.VKService import VKService
 
 load_dotenv()
 
@@ -27,14 +24,6 @@ token_api=os.getenv(key='ACCESS_TOKEN_API')
 vk_session = vk_api.VkApi(token=token)
 longpoll = VkLongPoll(vk_session)
 users_list = {}
-realization = os.getenv(key='REALIZATION')
-class TyleRealization(Enum):
-    sql = 'SQL'
-    orm = 'ORM'
-repository: ABCRepository
-сheckDB: ABCCheckDb
-upload:VkUpload
-
 
 def handle_start(user_id):
     """
@@ -51,7 +40,9 @@ def handle_start(user_id):
             user.set_last_name(users_info['last_name'])
             user.set_gender(users_info['sex'])
             if users_info.get('bdate'):
-               user.set_age(vk_srv.determine_age(users_info['bdate']))
+                user.set_age(vk_srv.determine_age(users_info['bdate']))
+            if users_info.get('city') is None:
+                users_info['city'] = {'id': 1, 'title': 'Москва'}
             user.set_city({'id': users_info['city']['id'], 'name': users_info['city']['title']})
             hello_message = ms.get_hello_message(user.get_user_id(), user.get_first_name())
             send_message(hello_message)
@@ -108,25 +99,59 @@ def set_param(user: User, text: str):
     elif user.get_step() == 'anketa_last_name':
         user.set_last_name(text)
     elif user.get_step() == 'anketa_age':
-        user.set_age(text)
+        try:
+            age = int(text)
+            if 1 <= age <= 120:
+                user.set_age(age)
+            else:
+                user.set_age(18)
+        except (ValueError, TypeError):
+            user.set_age(18)
     elif user.get_step() == 'anketa_gender':
-        user.set_gender(int(text))
+        try:
+            user.set_gender(int(text))
+        except (ValueError, TypeError):
+            user.set_gender(2)
     elif user.get_step() == 'anketa_city':
         city = vk_srv.get_city_by_name(token=token_api, text=text)
+        if city is None:
+            city = {'id': 1, 'name': 'Москва'}
         user.set_city(city)
     else:
         if user.get_step() == 'criteria_gender':
-            user.get_criteria().gender_id = int(text)
+            try:
+                user.get_criteria().gender_id = int(text)
+            except (ValueError, TypeError):
+                user.get_criteria().gender_id = 2
         elif user.get_step() == 'criteria_age':
-            age = text.split('-')
-            user.get_criteria().age_from = age[0]
-            user.get_criteria().age_to = age[1]
+            try:
+                age = text.split('-')
+                if len(age) == 2:
+                    age_from = int(age[0].strip())
+                    age_to = int(age[1].strip())
+                    if age_from > age_to:
+                        raise ValueError("Начальный возраст не может быть больше конечного")
+                    user.get_criteria().age_from = age_from
+                    user.get_criteria().age_to = age_to
+                else:
+                    raise ValueError("Invalid format")
+            except (ValueError, TypeError, IndexError):
+                user.get_criteria().age_from = 18
+                user.get_criteria().age_to = 28
         elif user.get_step() == 'criteria_status':
-            user.get_criteria().status = int(text)
+            try:
+                user.get_criteria().status = int(text)
+            except (ValueError, TypeError):
+                user.get_criteria().status = 2
         elif user.get_step() == 'criteria_has_photo':
-            user.get_criteria().has_photo = int(text)
+            try:
+                user.get_criteria().has_photo = int(text)
+            except (ValueError, TypeError):
+                user.get_criteria().has_photo = 0
         elif user.get_step() == 'criteria_city':
             city = vk_srv.get_city_by_name(token=token_api, text=text)
+            if city is None:
+                city = {'id': 1, 'name': 'Москва'}
             user.get_criteria().city = city
 
 
@@ -301,16 +326,18 @@ def add_exceptions(repository, user: User):
 if __name__ == '__main__':
     upload = VkUpload(vk_session)
 
-    if realization == 'SQL':
-        сheckDB = CheckDBSQL()
-        repository = SQLRepository()
+    check_db = CheckDb()
+    repository = Repository()
 
-    elif realization == 'ORM':
-        сheckDB = CheckDBORM()
-        repository = ORMRepository()
+    print('Bot is running...')
 
-    if сheckDB.check_db():
+    if check_db.check_db():
+        print('Database is ready and initialized')
+        print(f"Error status: {check_db.error}")
+        
+        users_list = repository.get_users()
         vk_srv = VKService()
+
         for event in VkLongPoll(vk_session).listen():
             if event.type == VkEventType.MESSAGE_NEW and event.to_me and event.text:
                 text = event.text.lower()

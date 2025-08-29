@@ -1,5 +1,5 @@
 
-class CardFavorites():
+class CardExceptions():
     def __init__(self):
         self.user_id = ''
         self.first_name = ""
@@ -10,4 +10,3 @@ class CardFavorites():
         self.photos = None
         self.city_id = -1
         self.city_name = ''
-

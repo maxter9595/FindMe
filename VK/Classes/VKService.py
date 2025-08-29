@@ -3,9 +3,9 @@ from datetime import datetime
 import requests
 from dateutil.relativedelta import relativedelta
 
-from Criteria import Criteria
-from Repository.CardFind import CardFind
-from Result import Result
+from Repository.Classes.CardFind import CardFind
+from VK.Classes.Criteria import Criteria
+from VK.Classes.Result import Result
 
 
 class VKService:
@@ -60,6 +60,7 @@ class VKService:
         response = requests.get(url, params={**criteria_dict})
         if response.status_code == 200:
             users_list = []
+            print (response.json())
             items = response.json().get('response').get('items')
             for item in items:
                 if not item.get('city'):
