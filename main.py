@@ -178,71 +178,118 @@ def main_menu(user: User):
 
 
 def upload_photo(upload, url):
+    try:
 
-    if url:
-        img = requests.get(str(url)).content
-        f = BytesIO(img)
+        if url:
+            img = requests.get(str(url), timeout=10).content
+            f = BytesIO(img)
 
-        response = upload.photo_messages(f)[0]
+            response = upload.photo_messages(f)[0]
 
-        owner_id = response['owner_id']
-        photo_id = response['id']
-        access_key = response['access_key']
+            owner_id = response['owner_id']
+            photo_id = response['id']
+            access_key = response['access_key']
 
-        return {'owner_id': owner_id, 'photo_id': photo_id, 'access_key': access_key}
+            return {'owner_id': owner_id, 'photo_id': photo_id, 'access_key': access_key}
 
-    else:
+        else:
+            return {}
+
+    except requests.exceptions.Timeout:
+        print(f"Timeout error when loading photo: {url}")
+        return {}
+    
+    except requests.exceptions.RequestException as e:
+        print(f"Error loading photo {url}: {e}")
+        return {}
+    
+    except Exception as e:
+        print(f"Unexpected error in upload_photo: {e}")
         return {}
 
 def find_users(upload, user: User, vk_srv, token):
-    list_cards = vk_srv.users_search(user.get_criteria(), token_api)
-    if not list_cards is None:
-        user.set_list_cards(list_cards)
-        user.set_index_view(-1)
-        view_next_card(upload, user, vk_srv, token)
-    else:
-        message_error_search = ms.get_message_error_search(user.get_user_id())
-        send_message(message_error_search)
-
+    try:
+        list_cards = vk_srv.users_search(user.get_criteria(), token_api)
+        if list_cards:
+            user.set_list_cards(list_cards)
+            user.set_index_view(-1)
+            view_next_card(upload, user, vk_srv, token)
+        else:
+            message_error_search = ms.get_message_error_search(user.get_user_id())
+            send_message(message_error_search)
+    except Exception as e:
+        print(f"Error in find_users: {e}")
+        message_error = ms.get_message_error_search(user.get_user_id())
+        send_message(message_error)
+        main_menu(user)
 
 def view_next_card(upload, user: User, vk_srv, token):
-    if user.get_size_list_cards() > 0:
+    try:
+        if user.get_size_list_cards() > 0:
+            next_index = user.get_index_view()
+            next_index = next_index + 1
+            if next_index == user.get_size_list_cards():
+                next_index = next_index - 1
+            user.set_index_view(next_index)
+
+            photos = user.get_list_cards()[next_index].photos
+            attachment = []
+            for photo in photos:
+                try:
+                    photo_struct = upload_photo(upload, photo)
+                    if photo_struct:
+                        attachment.append(f'photo{photo_struct["owner_id"]}_{photo_struct["photo_id"]}_{photo_struct["access_key"]}')
+                except Exception as e:
+                    print(f"Error processing photo {photo}: {e}")
+                    continue  # Пропускаем проблемную фотографию
+
+            # Если есть хотя бы одно фото - показываем карточку
+            if attachment:
+                message_view = ms.get_message_view(','.join(attachment), user.get_card(), user)
+                send_message(message_view)
+            else:
+                # Если фото не загрузились, показываем карточку без фото
+                message_view = ms.get_message_view('', user.get_card(), user)
+                send_message(message_view)
+                print(f"No photos loaded for user {user.get_card().id}")
+
+            # Предзагрузка следующей карточки (с обработкой ошибок)
+            if user.get_size_list_cards()-1 > next_index:
+                try:
+                    if not user.get_list_cards()[next_index+1].photos:
+                        vk_srv.add_photos(user.get_list_cards()[next_index+1], token)
+                except Exception as e:
+                    print(f"Error preloading next card: {e}")
+        else:
+            main_menu(user)
+    except Exception as e:
+        print(f"Critical error in view_next_card: {e}")
+        main_menu(user)
+
+def view_back_card(user):
+    try:
         next_index = user.get_index_view()
-        next_index = next_index + 1
-        if next_index == user.get_size_list_cards():
-            next_index = next_index - 1
+        next_index = next_index - 1
+        if next_index < 0:
+            next_index = 0
         user.set_index_view(next_index)
 
         photos = user.get_list_cards()[next_index].photos
         attachment = []
         for photo in photos:
-            photo_struct = upload_photo(upload, photo)
-            if photo_struct:
-                attachment.append(f'photo{photo_struct["owner_id"]}_{photo_struct["photo_id"]}_{photo_struct["access_key"]}')
+            try:
+                photo_struct = upload_photo(upload, photo)
+                if photo_struct:
+                    attachment.append(f'photo{photo_struct["owner_id"]}_{photo_struct["photo_id"]}_{photo_struct["access_key"]}')
+            except Exception as e:
+                print(f"Error processing photo {photo}: {e}")
+                continue
 
-        message_view = ms.get_message_view(','.join(attachment), user.get_card(), user)
+        message_view = ms.get_message_view(','.join(attachment) if attachment else '', user.get_card(), user)
         send_message(message_view)
-        if user.get_size_list_cards()-1 > next_index and not user.get_list_cards()[next_index+1].photos:
-            vk_srv.add_photos(user.get_list_cards()[next_index+1], token)
-    else:
+    except Exception as e:
+        print(f"Error in view_back_card: {e}")
         main_menu(user)
-
-
-def view_back_card(user):
-    next_index = user.get_index_view()
-    next_index = next_index - 1
-    user.set_index_view(next_index)
-
-    photos = user.get_list_cards()[next_index].photos
-    attachment = []
-    for photo in photos:
-        photo_struct = upload_photo(upload, photo)
-        if photo_struct:
-            attachment.append(f'photo{photo_struct["owner_id"]}_{photo_struct["photo_id"]}_{photo_struct["access_key"]}')
-
-    message_view = ms.get_message_view(','.join(attachment), user.get_card(), user)
-    send_message(message_view)
-
 
 def check_user(user_id):
     user = repository.get_user(user_id)
@@ -339,118 +386,127 @@ if __name__ == '__main__':
         vk_srv = VKService()
 
         for event in VkLongPoll(vk_session).listen():
-            if event.type == VkEventType.MESSAGE_NEW and event.to_me and event.text:
-                text = event.text.lower()
-                payload = event.extra_values.get('payload')
+            try:
+                if event.type == VkEventType.MESSAGE_NEW and event.to_me and event.text:
+                    text = event.text.lower()
+                    payload = event.extra_values.get('payload')
 
-                # Начало работы
-                if text == 'start':
-                    handle_start(event.user_id)
+                    # Начало работы
+                    if text == 'start':
+                        handle_start(event.user_id)
 
-                # Регистрация
-                elif text == 'хочу зарегистрироваться':
-                    message_id = handle_registration(users_list[event.user_id])
-                    users_list[event.user_id].set_id_msg_edit_id(message_id)
-
-                # Нажатие кнопок
-                elif payload:
-                    payload = json.loads(payload)
-                    # Анкета
-                    if payload.get('action_edit_anketa'):
-                        str_arg = payload.get('action_edit_anketa')
-                        send_ask_edit_anketa(users_list[event.user_id], str_arg)
-
-                    # Критерии поиска
-                    elif payload.get('action_edit_criteria'):
-                        str_arg = payload.get('action_edit_criteria')
-                        send_ask_edit_criteria(users_list[event.user_id], str_arg)
-
-                    # Сохранить критерии
-                    elif payload.get('action_save_criteria'):
-                        save_criteria(users_list[event.user_id])
-
-                    # Сохранить анкету
-                    elif payload.get('action_save_anketa'):
-                        save_anketa(users_list[event.user_id])
-                        message_id = handle_criteria(users_list[event.user_id])
+                    # Регистрация
+                    elif text == 'хочу зарегистрироваться':
+                        message_id = handle_registration(users_list[event.user_id])
                         users_list[event.user_id].set_id_msg_edit_id(message_id)
 
-                    # Отмена текущего действия
-                    elif payload.get('action_cancel'):
-                        action = payload.get('action_cancel')
+                    # Нажатие кнопок
+                    elif payload:
+                        payload = json.loads(payload)
+                        # Анкета
+                        if payload.get('action_edit_anketa'):
+                            str_arg = payload.get('action_edit_anketa')
+                            send_ask_edit_anketa(users_list[event.user_id], str_arg)
 
-                        # Отмена редактирования пункта анкеты
-                        if action == 'cancel_edit_anketa':
-                            users_list[event.user_id].set_step(None)
-                            message_id = handle_registration(users_list[event.user_id])
-                            users_list[event.user_id].set_id_msg_edit_id(message_id)
+                        # Критерии поиска
+                        elif payload.get('action_edit_criteria'):
+                            str_arg = payload.get('action_edit_criteria')
+                            send_ask_edit_criteria(users_list[event.user_id], str_arg)
 
+                        # Сохранить критерии
+                        elif payload.get('action_save_criteria'):
+                            save_criteria(users_list[event.user_id])
 
-                    # Команды главного меню
-                    elif payload.get('action_main_manu'):
-                        action = payload.get('action_main_manu')
-
-                        # Переход в главное меню
-                        if action == 'go_to_main_manu':
-                            main_menu(users_list[event.user_id])
-
-                        # Поиск пользователей
-                        elif action == 'find_users':
-                            find_users(upload, users_list[event.user_id], vk_srv, token_api)
-
-                        # Открыть список избранных
-                        elif action == 'go_to_favorites':
-                            go_to_favorites(upload, users_list[event.user_id], repository)
-
-                        # Открыть черный избранных
-                        elif action == 'go_to_exception':
-                            go_to_exceptions(upload, users_list[event.user_id], repository)
-
-                        # Редактировать критерии поиска
-                        elif action == 'criteria':
+                        # Сохранить анкету
+                        elif payload.get('action_save_anketa'):
+                            save_anketa(users_list[event.user_id])
                             message_id = handle_criteria(users_list[event.user_id])
                             users_list[event.user_id].set_id_msg_edit_id(message_id)
 
-                     # Просмотр текущего списка
-                    elif payload.get('action_view'):
-                        action = payload.get('action_view')
-                        # Переход вперед
-                        if action == 'go_to_next':
-                            view_next_card(upload, users_list[event.user_id], vk_srv, token_api)
+                        # Отмена текущего действия
+                        elif payload.get('action_cancel'):
+                            action = payload.get('action_cancel')
 
-                        # Переход назад
-                        elif action == 'go_to_back':
-                            view_back_card(users_list[event.user_id])
+                            # Отмена редактирования пункта анкеты
+                            if action == 'cancel_edit_anketa':
+                                users_list[event.user_id].set_step(None)
+                                message_id = handle_registration(users_list[event.user_id])
+                                users_list[event.user_id].set_id_msg_edit_id(message_id)
 
-                        # Добавить в избранное
-                        elif action == 'add_favorites':
-                            add_favorites(repository, users_list[event.user_id])
 
-                        # Добавить в избранное
-                        elif action == 'add_favorites':
-                            add_favorites(repository, users_list[event.user_id])
+                        # Команды главного меню
+                        elif payload.get('action_main_manu'):
+                            action = payload.get('action_main_manu')
 
-                        # Удалить из избранных
-                        elif action == 'delete_from_list':
-                            delete_from_list(users_list[event.user_id], repository)
+                            # Переход в главное меню
+                            if action == 'go_to_main_manu':
+                                main_menu(users_list[event.user_id])
 
-                        # Добавить в черный список
-                        elif action == 'add_exceptions':
-                            add_exceptions(repository, users_list[event.user_id])
+                            # Поиск пользователей
+                            elif action == 'find_users':
+                                find_users(upload, users_list[event.user_id], vk_srv, token_api)
 
-                # Получение данных для текущего шага анкета или критерии поиска
-                elif not users_list.get(event.user_id) is None and not users_list[event.user_id].get_step() is None:
-                    set_param(users_list[event.user_id], text)
-                    if 'anketa' in users_list[event.user_id].get_step():
-                        message_id = handle_registration(users_list[event.user_id])
-                        users_list[event.user_id].set_id_msg_edit_id(message_id)
+                            # Открыть список избранных
+                            elif action == 'go_to_favorites':
+                                go_to_favorites(upload, users_list[event.user_id], repository)
+
+                            # Открыть черный избранных
+                            elif action == 'go_to_exception':
+                                go_to_exceptions(upload, users_list[event.user_id], repository)
+
+                            # Редактировать критерии поиска
+                            elif action == 'criteria':
+                                message_id = handle_criteria(users_list[event.user_id])
+                                users_list[event.user_id].set_id_msg_edit_id(message_id)
+
+                        # Просмотр текущего списка
+                        elif payload.get('action_view'):
+                            action = payload.get('action_view')
+                            # Переход вперед
+                            if action == 'go_to_next':
+                                view_next_card(upload, users_list[event.user_id], vk_srv, token_api)
+
+                            # Переход назад
+                            elif action == 'go_to_back':
+                                view_back_card(users_list[event.user_id])
+
+                            # Добавить в избранное
+                            elif action == 'add_favorites':
+                                add_favorites(repository, users_list[event.user_id])
+
+                            # Добавить в избранное
+                            elif action == 'add_favorites':
+                                add_favorites(repository, users_list[event.user_id])
+
+                            # Удалить из избранных
+                            elif action == 'delete_from_list':
+                                delete_from_list(users_list[event.user_id], repository)
+
+                            # Добавить в черный список
+                            elif action == 'add_exceptions':
+                                add_exceptions(repository, users_list[event.user_id])
+
+                    # Получение данных для текущего шага анкета или критерии поиска
+                    elif not users_list.get(event.user_id) is None and not users_list[event.user_id].get_step() is None:
+                        set_param(users_list[event.user_id], text)
+                        if 'anketa' in users_list[event.user_id].get_step():
+                            message_id = handle_registration(users_list[event.user_id])
+                            users_list[event.user_id].set_id_msg_edit_id(message_id)
+                        else:
+                            message_id = handle_criteria(users_list[event.user_id])
+                            users_list[event.user_id].set_id_msg_edit_id(message_id)
+
+                    # Просто сообщение от пользователя. Есть пользователь в базе или нет
                     else:
-                        message_id = handle_criteria(users_list[event.user_id])
-                        users_list[event.user_id].set_id_msg_edit_id(message_id)
-
-                # Просто сообщение от пользователя. Есть пользователь в базе или нет
-                else:
-                    if not event.user_id in users_list.keys():
-                        user = check_user(event.user_id)
-                        if user:
-                            users_list[event.user_id] = user
+                        if not event.user_id in users_list.keys():
+                            user = check_user(event.user_id)
+                            if user:
+                                users_list[event.user_id] = user
+            except Exception as e:
+                print(f"Error processing event: {e}")
+                # Можно отправить сообщение об ошибке пользователю
+                error_message = {
+                    'user_id': event.user_id,
+                    'message': 'Произошла ошибка. Попробуйте еще раз.',
+                }
+                send_message(error_message)

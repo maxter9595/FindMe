@@ -221,17 +221,27 @@ def get_message_view(attachment, card, user: User):
 
 
 def upload_photo(upload, url):
-    img = requests.get(url).content
-    f = BytesIO(img)
+    try:
+        img = requests.get(url, timeout=10).content
+        f = BytesIO(img)
 
-    response = upload.photo_messages(f)[0]
+        response = upload.photo_messages(f)[0]
 
-    owner_id = response['owner_id']
-    photo_id = response['id']
-    access_key = response['access_key']
+        owner_id = response['owner_id']
+        photo_id = response['id']
+        access_key = response['access_key']
 
-    return {'owner_id': owner_id, 'photo_id': photo_id, 'access_key': access_key}
-
+        return {'owner_id': owner_id, 'photo_id': photo_id, 'access_key': access_key}
+    
+    except requests.exceptions.Timeout:
+        print(f"Timeout error when loading photo: {url}")
+        return {}
+    except requests.exceptions.RequestException as e:
+        print(f"Error loading photo {url}: {e}")
+        return {}
+    except Exception as e:
+        print(f"Unexpected error in upload_photo: {e}")
+        return {}
 
 def get_message_error_search(user_id):
     text_message = f'По заданным параметрам\nничего найти не удалось'
